@@ -83,9 +83,15 @@ SQtree::Node *SQtree::buildTree(stats &s, pair<int, int> &ul,
     }
 
     node->NW = buildTree(s, ul, splitter.first, splitter.second, tol);
-    node->NE = buildTree(s, make_pair(splitter.first - 1, ul.second), w - splitter.first, splitter.second, tol);
-    node->SW = buildTree(s, make_pair(ul.first, splitter.second - 1), splitter.first, h - splitter.second, tol);
-    node->SE = buildTree(s, make_pair(splitter.first - 1, splitter.second - 1), w - splitter.first, h - splitter.second,
+
+    pair<int, int> ul2 = make_pair(splitter.first - 1, ul.second);
+    node->NE = buildTree(s, ul2, w - splitter.first, splitter.second, tol);
+
+    pair<int, int> ul3 = make_pair(ul.first, splitter.second - 1);
+    node->SW = buildTree(s, ul3, splitter.first, h - splitter.second, tol);
+
+    pair<int, int> ul4 = make_pair(splitter.first - 1, splitter.second - 1);
+    node->SE = buildTree(s, ul4, w - splitter.first, h - splitter.second,
                          tol);
 
 }
@@ -96,8 +102,8 @@ SQtree::Node *SQtree::buildTree(stats &s, pair<int, int> &ul,
 PNG SQtree::render() {
 
     if (root != NULL) {
-        PNG result = new PNG(root->width, root->height);
-        return renderHelper(root, result);
+        PNG *result = new PNG(root->width, root->height);
+        return renderHelper(root, *result);
     }
 }
 
@@ -107,7 +113,8 @@ PNG SQtree::renderHelper(Node *curr, PNG &img) {
         if (curr->NW == NULL && curr->NE == NULL && curr->SW == NULL && curr->SE == NULL) {
             for (int x = curr->upLeft.first; x < curr->upLeft.first + curr->width; x++) {
                 for (int y = curr->upLeft.second; y < curr->upLeft.second + curr->height; y++) {
-                    img.getPixel() = curr->avg;
+                    RGBAPixel *p = img.getPixel(x,y);
+                    p = &curr->avg;
                 }
             }
             return img;
@@ -138,11 +145,11 @@ void SQtree::clear_helper(Node *curr){
 }
 
 void SQtree::copy(const SQtree &other) {
-    copy_helper(other->root, root);
+    copy_helper(other.root, root);
 }
 
 void SQtree::copy_helper(Node* other, Node* curr) {
-    curr = copy(other);
+    curr = other;
     if(other->NW != NULL){
         copy_helper(other->NW, curr->NW);
     }
