@@ -54,32 +54,71 @@ SQtree::SQtree(PNG &imIn, double tol) {
 /**
  * Helper for the SQtree constructor.
  */
-SQtree::Node * SQtree::buildTree(stats & s, pair<int,int> & ul,
-                                 int w, int h, double tol) {
+SQtree::Node *SQtree::buildTree(stats &s, pair<int, int> &ul,
+                                int w, int h, double tol) {
 
     Node *node = new Node(s, ul, w, h);
-    pair<int, int> splitter;
-    double minAvgVar = 10000000;
-
-
-    if (s.getVar(ul, w, h) > tol || (w == 1 && h == 1))
-    {
-        cout << "returned" << endl;
+//    cout << "w: " << w << "h: " << h << "ul: [" << ul.first << "," << ul.second << "]" << endl;
+    if (s.getVar(ul, w, h) <= tol || (w == 1 && h == 1)) {
         return node;
     }
 
+    pair<int, int> splitter = make_pair(ul.first, ul.second);
+    double minMaxVar = 10000000;
+
     for (int x = ul.first; x < ul.first + w; x++) {
         for (int y = ul.second; y < ul.second + h; y++) {
-            if(!(x == 0 && y == 0)){
-                double varNW = s.getVar(ul, x-ul.first+1, y-ul.second+1);
-                double varNE = s.getVar(make_pair(x + 1, ul.second), w - x-1, y-ul.second+1);
-                double varSW = s.getVar(make_pair(ul.first, y + 1),x-ul.first+1, h-y-1);
-                double varSE = s.getVar(make_pair(x + 1, y + 1), w-x-1, h-y-1);
+            if (!((x == ul.first && y == ul.second) || (x == ul.first + w && y == ul.second + h)
+                  || (x == ul.first && y == ul.second + h) || (x == ul.first + w && y == ul.second))) {
+                double varNW;
+                double varNE;
+                double varSW;
+                double varSE;
 
-                double avgVar = (varNW + varNE + varSW + varSE) / 4;
+                if (x == ul.first) {
+                    varNW = -1;
+                    varSW = -1;
+                    varSE = s.getVar(make_pair(x, y), w, h - (y-ul.second));
+                    varNE = s.getVar(make_pair(x, ul.second), w, y - ul.second);
 
-                if (avgVar < minAvgVar) {
-                    minAvgVar = avgVar;
+                } else if (x == ul.first + w) {
+                    varNE = -1;
+                    varSE = -1;
+                    varNW = s.getVar(ul, w, y - ul.second);
+                    varSW = s.getVar(make_pair(ul.first, y), x - ul.first, h - (y-ul.second));
+
+                } else if (y == ul.second + h) {
+                    varSW = -1;
+                    varSE = -1;
+                    varNW = s.getVar(ul, x - ul.first, y - ul.second);
+                    varNE = s.getVar(make_pair(x, ul.second), w - (x-ul.first), y - ul.second);
+                } else if (y == ul.second) {
+                    varNW = -1;
+                    varNE = -1;
+                    varSW = s.getVar(make_pair(ul.first, y), x - ul.first, h - (y-ul.second));
+                    varSE = s.getVar(make_pair(x, y), w - (x-ul.first), h - (y-ul.second));
+                } else {
+                    varNW = s.getVar(ul, x - ul.first, y - ul.second);
+                    varNE = s.getVar(make_pair(x, ul.second), w - (x-ul.first), y - ul.second);
+                    varSW = s.getVar(make_pair(ul.first, y), x - ul.first, h - (y-ul.second));
+                    varSE = s.getVar(make_pair(x, y), w - (x-ul.first), h - (y-ul.second));
+                }
+
+                varNW = max(varNW, -varNW);
+                varNE = max(varNE, -varNE);
+                varSW = max(varSW, -varSW);
+                varSE = max(varSE, -varSE);
+
+                double maxVar = max(max(max(varNW, varNE), varSW), varSE);
+
+//                cout << "curr spli: " << x << " " << y << endl;
+//                cout << varNW << " " << varNE << " " << varSW << " " << varSE << endl;
+//                cout << "maxVAr: " << maxVar << endl << "minMaxVar: " << minMaxVar << endl;
+//                cout << "best spli: " << splitter.first << " " << splitter.second << endl;
+//                cout << endl;
+
+                if (maxVar < minMaxVar) {
+                    minMaxVar = maxVar;
                     splitter.first = x;
                     splitter.second = y;
                 }
@@ -87,73 +126,90 @@ SQtree::Node * SQtree::buildTree(stats & s, pair<int,int> & ul,
         }
     }
 
-    cout<<splitter.first<<" "<<splitter.second<<endl;
+//    cout << "result:" << splitter.first << " " << splitter.second << endl;
 
-    pair<int, int> ul4 = make_pair(splitter.first - 1, splitter.second - 1);
-    node->SE = buildTree(s, ul4, w - splitter.first, h - splitter.second, tol);
+    pair<int, int> ul4 = make_pair(splitter.first, splitter.second);
+    node->SE = buildTree(s, ul4, w - (ul4.first - ul.first), h - (ul4.second - ul.second), tol);
 
-    if(splitter.first != 0){
-        pair<int, int> ul3 = make_pair(ul.first, splitter.second - 1);
-        node->SW = buildTree(s, ul3, splitter.first, h - splitter.second, tol);
+    if (splitter.first != ul.first) {
+        pair<int, int> ul3 = make_pair(ul.first, splitter.second);
+        node->SW = buildTree(s, ul3, splitter.first - ul.first, h - (ul3.second - ul.second), tol);
     }
 
-    if(splitter.second != 0){
-        pair<int, int> ul2 = make_pair(splitter.first - 1, ul.second);
-        node->NE = buildTree(s, ul2, w - splitter.first, splitter.second, tol);
+    if (splitter.second != ul.second) {
+        pair<int, int> ul2 = make_pair(splitter.first, ul.second);
+        node->NE = buildTree(s, ul2, w - (ul2.first - ul.first), splitter.second - ul.second, tol);
     }
 
-    if(splitter.first != 0 && splitter.second != 0){
-        node->NW = buildTree(s, ul, splitter.first, splitter.second, tol);
+    if (splitter.first != ul.first && splitter.second != ul.second) {
+        node->NW = buildTree(s, ul, splitter.first - ul.first, splitter.second - ul.second, tol);
     }
 
     return node;
-
 }
 
 /**
  * Render SQtree and return the resulting image.
  */
 PNG SQtree::render() {
-    return render_helper(root);
-}
 
-
-PNG SQtree::render_helper(Node* root) {
-    PNG *result = new PNG(root->width, root->height);
-    vector<Node*> todo;
-    todo.push_back(root);
-    while(!todo.empty()){
-        Node *curr = todo.back();
-        todo.pop_back();
-        if(curr->NW != NULL){
-            todo.push_back(curr->NW);
-        }
-        if(curr->NE != NULL){
-            todo.push_back(curr->NE);
-        }
-        if(curr->SW != NULL){
-            todo.push_back(curr->SW);
-        }
-        if(curr->SE != NULL){
-            todo.push_back(curr->SE);
-        }
-        if (curr->NW == NULL && curr->NE == NULL && curr->SW == NULL && curr->SE == NULL) {
-            for (int x = curr->upLeft.first; x < curr->upLeft.first + curr->width; x++) {
-                for (int y = curr->upLeft.second; y < curr->upLeft.second + curr->height; y++) {
-                    RGBAPixel *p = result->getPixel(x, y);
-                    p = &curr->avg;
+    if (root != NULL) {
+        PNG *result = new PNG(root->width, root->height);
+        vector<Node*> todo;
+        todo.push_back(root);
+        while(!todo.empty()){
+            Node *curr = todo.back();
+            todo.pop_back();
+            if(curr->NW != NULL){
+                todo.push_back(curr->NW);
+            }
+            if(curr->NE != NULL){
+                todo.push_back(curr->NE);
+            }
+            if(curr->SW != NULL){
+                todo.push_back(curr->SW);
+            }
+            if(curr->SE != NULL){
+                todo.push_back(curr->SE);
+            }
+            if (curr->NW == NULL && curr->NE == NULL && curr->SW == NULL && curr->SE == NULL) {
+                for (int x = curr->upLeft.first; x < curr->upLeft.first + curr->width; x++) {
+                    for (int y = curr->upLeft.second; y < curr->upLeft.second + curr->height; y++) {
+                        RGBAPixel *p = result->getPixel(x, y);
+                        *p = curr->avg;
+                    }
                 }
             }
         }
+        return *result;
     }
-    return *result;
+}
+
+PNG SQtree::render_helper(Node *curr, PNG &img) {
+    cout << "1" << endl;
+    if (curr != NULL) {
+        if (curr->NW == NULL && curr->NE == NULL && curr->SW == NULL && curr->SE == NULL) {
+            for (int x = curr->upLeft.first; x < curr->upLeft.first + curr->width - 1; x++) {
+                for (int y = curr->upLeft.second; y < curr->upLeft.second + curr->height - 1; y++) {
+                    RGBAPixel *p = img.getPixel(x, y);
+                    p = &curr->avg;
+                }
+            }
+            return img;
+        }
+        cout << "2" << endl;
+        img = render_helper(curr->NW, img);
+        img = render_helper(curr->NE, img);
+        img = render_helper(curr->SW, img);
+        img = render_helper(curr->SE, img);
+    }
 }
 
 /**
  * Delete allocated memory.
  */
 void SQtree::clear() {
-   clear_helper(root);
+    clear_helper(root);
 }
 
 void SQtree::clear_helper(Node *curr) {

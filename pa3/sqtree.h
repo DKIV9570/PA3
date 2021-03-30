@@ -183,7 +183,7 @@ private:
     /* END ================ Required private functions (NOT GIVEN) ====== */
 
     /* BEGIN ============== Your personal private functions ============= */
-    PNG render_helper(Node *root);
+    PNG render_helper(Node *root, PNG &img);
 
     int getSize(Node *curr);
 
