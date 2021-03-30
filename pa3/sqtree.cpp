@@ -114,31 +114,39 @@ SQtree::Node * SQtree::buildTree(stats & s, pair<int,int> & ul,
  * Render SQtree and return the resulting image.
  */
 PNG SQtree::render() {
-
-    if (root != NULL) {
-        PNG *result = new PNG(root->width, root->height);
-        return renderHelper(root, *result);
-    }
+    return render_helper(root);
 }
 
-PNG SQtree::renderHelper(Node *curr, PNG &img) {
 
-    if (curr != NULL) {
+PNG SQtree::render_helper(Node* root) {
+    PNG *result = new PNG(root->width, root->height);
+    vector<Node*> todo;
+    todo.push_back(root);
+    while(!todo.empty()){
+        Node *curr = todo.back();
+        todo.pop_back();
+        if(curr->NW != NULL){
+            todo.push_back(curr->NW);
+        }
+        if(curr->NE != NULL){
+            todo.push_back(curr->NE);
+        }
+        if(curr->SW != NULL){
+            todo.push_back(curr->SW);
+        }
+        if(curr->SE != NULL){
+            todo.push_back(curr->SE);
+        }
         if (curr->NW == NULL && curr->NE == NULL && curr->SW == NULL && curr->SE == NULL) {
             for (int x = curr->upLeft.first; x < curr->upLeft.first + curr->width; x++) {
                 for (int y = curr->upLeft.second; y < curr->upLeft.second + curr->height; y++) {
-                    RGBAPixel *p = img.getPixel(x, y);
+                    RGBAPixel *p = result->getPixel(x, y);
                     p = &curr->avg;
                 }
             }
-            return img;
         }
-
-        renderHelper(curr->NW, img);
-        renderHelper(curr->NE, img);
-        renderHelper(curr->SW, img);
-        renderHelper(curr->SE, img);
     }
+    return *result;
 }
 
 /**
